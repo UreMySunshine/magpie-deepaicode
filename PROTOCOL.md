@@ -43,7 +43,8 @@
 | 头 | 值 | 作用 |
 |---|---|---|
 | `Api-Key` | 账号 Key（UUID 形态 `8-4-4-4-12`） | **鉴权走这个头，不是 `Authorization`** |
-| `X-DeepAI-Code-Theos` | `2` | 计费车道版本；不对会 `426` |
+| `X-DeepAI-Code-Theos` | `4` | 计费车道版本；不对会 `426` |
+| `X-DeepAI-Code-Instance` | 每进程随机 32 hex（同桌面端 `DEEPAI_LANE_HEADERS`）；缺了回 `400 "This request is not one DeepAI Code sends"` |
 | `X-DeepAI-Code-Machine` | `sha256(小写原始 UUID)` 十六进制 | 每日免费额度的分配键 |
 | `X-Session-Affinity` | 任意会话 id | 会话粘性（body 的 `prompt_cache_key` 同效） |
 
@@ -195,3 +196,13 @@ npm test
 ```
 
 关键取舍：插件对上游的**错误原话一律透传**，自己的文案只用于"该怎么处理"；因此上游变更时，agent 与日志里能看到原话，不会被插件吞掉。
+
+### 2026-11-07 变更：上游开始校验请求形状
+
+上游（约 2026-11-07 起）对 `/deepai_code/chat/completions` 与 `/responses` 做三项校验，缺任一回 `400 "This request is not one DeepAI Code sends."`：
+
+1. `X-DeepAI-Code-Theos` 必须为 `4`（旧值 `2` 回 `426 "This version of DeepAI Code is no longer supported"`）。
+2. 必须带 `X-DeepAI-Code-Instance`（每进程随机 32 hex，同桌面端 `DEEPAI_LANE_HEADERS`）。
+3. 请求体必须"像桌面端"：chat 的 `messages` 首条须为 `system`/`developer`；responses 须带非空 `instructions`。实测经桌面端本地中继（127.0.0.1:56977）重放最小体（无 system）同样 400，补一条 system 即 200；`stream`/`stream_options`/内容块格式均不影响。
+
+`/deepai_code/theos` 的 check-in（nonce/beacon）与 chat 放行无关：先 `/theos` 后 chat 仍 400。

@@ -50,6 +50,39 @@ export function normalizeIncomingUrl(input, settings) {
   return `${base}${suffix}${search}`;
 }
 
+/**
+ * 上游 2026-11-07 起校验请求“必须是 DeepAI Code 发出的样子”：
+ * chat/completions 的 messages 首条必须是 system（或 developer），
+ * responses 必须带非空 instructions；缺失时上游回 400
+ * "This request is not one DeepAI Code sends."。这里只在缺的时候补一条
+ * 最简 system / instructions，不改已有内容。返回重写后的 body，没动则 null。
+ */
+export function shapeRequestBody(target, body) {
+  if (typeof body !== "string" || body.length === 0) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  if (parsed === null || typeof parsed !== "object") return null;
+  let changed = false;
+  if (target.endsWith(CHAT_SUFFIX) && Array.isArray(parsed.messages) && parsed.messages.length > 0) {
+    const first = parsed.messages[0];
+    const role = first && typeof first === "object" ? String(first.role ?? "") : "";
+    if (role !== "system" && role !== "developer") {
+      parsed.messages = [{ role: "system", content: "You are a coding agent." }, ...parsed.messages];
+      changed = true;
+    }
+  } else if (target.endsWith(RESPONSES_SUFFIX)) {
+    if (typeof parsed.instructions !== "string" || parsed.instructions.trim() === "") {
+      parsed.instructions = "You are a coding agent.";
+      changed = true;
+    }
+  }
+  return changed ? JSON.stringify(parsed) : null;
+}
+
 /** 每个请求要带的头（其余交给 magpie 的 init.headers）。 */
 export function modeHeaders(settings) {
   return directHeaders({
@@ -133,10 +166,13 @@ export function createLoader(auth, options = {}, { fetchImpl = globalThis.fetch 
         merged.set(HEADER_MACHINE, settings.machineFp);
       }
 
+      const shaped = shapeRequestBody(target, init?.body);
+      const outgoing = shaped === null ? init : { ...init, body: shaped };
+
       let res;
       try {
         res = await fetchImpl(target, {
-          ...init,
+          ...outgoing,
           headers: merged,
           redirect: "error", // 无效 Key 会 302 到登录页：绝不跟随
         });
