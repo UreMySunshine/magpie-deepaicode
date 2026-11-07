@@ -11,9 +11,11 @@ import { fetchJson } from "./http.mjs";
 import {
   DEFAULT_BASE_ORIGIN,
   DEFAULT_LANE_VERSION,
+  HEADER_INSTANCE,
   HEADER_KEY,
   HEADER_LANE,
   HEADER_MACHINE,
+  INSTANCE_ID,
 } from "./constants.mjs";
 import { parseResetTime, trimSlash } from "./util.mjs";
 
@@ -31,6 +33,7 @@ export function directHeaders({ key = "", machineFp = "", laneVersion = DEFAULT_
   const headers = { Accept: "application/json" };
   if (key) headers[HEADER_KEY] = String(key);
   headers[HEADER_LANE] = String(laneVersion || DEFAULT_LANE_VERSION);
+  if (INSTANCE_ID) headers[HEADER_INSTANCE] = INSTANCE_ID;
   if (machineFp) headers[HEADER_MACHINE] = String(machineFp);
   return headers;
 }

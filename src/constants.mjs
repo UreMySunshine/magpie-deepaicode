@@ -4,21 +4,38 @@
 // 网络实测见 PROTOCOL.md。这里只放“实现要照抄”的常量，不放逻辑。
 
 export const PROVIDER = "deepaicode";
-export const VERSION = "0.2.0";
+export const VERSION = "0.2.1";
 
 /** 直连上游默认地址。 */
 export const DEFAULT_BASE_ORIGIN = "https://api.deepai.org";
 /** 直连模式在 origin 下的路径前缀。 */
 export const DIRECT_MODEL_BASE = "/deepai_code";
 
-/** Theos 计费车道版本；上游不认会回 426。 */
-export const DEFAULT_LANE_VERSION = "2";
+/** Theos 计费车道版本；上游不认会回 426。2026-11-07 起上游要求 "4"。 */
+export const DEFAULT_LANE_VERSION = "4";
 
 export const HEADER_KEY = "Api-Key";
 export const HEADER_LANE = "X-DeepAI-Code-Theos";
+export const HEADER_INSTANCE = "X-DeepAI-Code-Instance";
 export const HEADER_MACHINE = "X-DeepAI-Code-Machine";
 export const HEADER_AFFINITY = "X-Session-Affinity";
 
+/**
+ * 每个插件进程一个随机实例 id（32 hex），与桌面端 0.3.19 的
+ * DEEPAI_LANE_HEADERS 相同的生成方式；缺这个头上游回 400
+ * "This request is not one DeepAI Code sends"。
+ */
+export const INSTANCE_ID = (() => {
+  const g = globalThis;
+  const c = g.crypto;
+  if (c?.randomBytes) return c.randomBytes(16).toString("hex");
+  if (c?.getRandomValues) {
+    const b = new Uint8Array(16);
+    c.getRandomValues(b);
+    return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  }
+  return "";
+})();
 /** 桌面端凭据文件名（按优先级）。 */
 export const CREDENTIAL_FILES = ["deepai-account.bin", "deepai-account-user-managed.bin"];
 /** 相对 base 目录的 secrets 候选。 */
